@@ -1,0 +1,92 @@
+version: "3.4"
+
+services:
+
+  whoami:
+    image: containous/whoami
+    networks:
+     - frontend
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 100s
+
+  haproxy:
+    image: markrebs/haproxy:1.9.13
+    networks:
+        - frontend
+    volumes:
+    - ~/haproxy:/usr/local/etc/haproxy:ro
+    dns: 127.0.0.11
+    ports:
+    - 80:80
+    - 443:443
+    - 9000:9000
+    deploy:
+      mode: global
+      update_config:
+        parallelism: 1
+        delay: 30s
+
+  haproxy-exporter:
+      image: prom/haproxy-exporter
+      networks:
+        - frontend
+      ports:
+      - 9101:9101
+      deploy:
+        mode: replicated
+        replicas: 1
+        restart_policy:
+          condition: on-failure
+      command:
+        - '--haproxy.scrape-uri="http://user:pass@localhost/haproxy?stats;csv"'
+
+  prometheus:
+    image: prom/prometheus@sha256:b4e6cd0275a26750505e539f8528e891053434ebd3972be02645bed5f02f0795
+    networks:
+      - frontend
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+#      - '--storage.tsdb.path=/prometheus'
+#      - '--storage.tsdb.retention=${PROMETHEUS_RETENTION:-24h}'
+    volumes:
+      - prometheus:/prometheus
+    configs:
+      - source: prom_conf
+        target: /etc/prometheus/prometheus.yml
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: 2048M
+        reservations:
+          memory: 128M
+
+networks:
+  frontend:
+    external: true
+
+
+volumes:
+  prometheus:
+    name: nfs-prometheus
+    driver: local
+    driver_opts:
+      type: nfs4
+      o: nfsvers=4,addr=172.24.7.36,rw
+      device: ":/prometheus"
+
+configs:
+   prom_conf:
+    file: /home/{{ansible_user}}/prometheus/prometheus.yml
+
