@@ -34,19 +34,19 @@ services:
         parallelism: 1
         delay: 30s
 
-#  haproxy-exporter:
-#      image: prom/haproxy-exporter
-#      networks:
-#        - frontend
-#      ports:
-#      - 9101:9101
-#      deploy:
-#        mode: replicated
-#        replicas: 1
-#        restart_policy:
-#          condition: on-failure
-#      command:
-#        - '--haproxy.scrape-uri="http://user:pass@localhost/haproxy?stats;csv"'
+  haproxy-exporter:
+      image: prom/haproxy-exporter
+      networks:
+        - frontend
+      ports:
+        - 9101:9101
+      deploy:
+        mode: replicated
+        replicas: 1
+        restart_policy:
+          condition: on-failure
+      environment:
+        - haproxy.scrape-uri="http://monitor:monitorg@127.0.0.1:9000/;csv"
 
 #  prometheus:
 #    image: prom/prometheus@sha256:b4e6cd0275a26750505e539f8528e891053434ebd3972be02645bed5f02f0795
